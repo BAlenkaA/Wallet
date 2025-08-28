@@ -1,0 +1,37 @@
+services:
+  database-wallet-service:
+    image: postgres:17
+    container_name: database-wallet-service
+    ports:
+      - "5432:5432"
+    volumes:
+      - database-wallet-service-volume:/var/lib/postgresql/data/
+    env_file:
+      - ../src/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app-wallet-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: app-wallet-service
+    ports:
+      - "8000:8000"
+    depends_on:
+      database-wallet-service:
+        condition: service_healthy
+    volumes:
+      - ..:/app
+    env_file:
+      - ../src/.env
+    command: >
+      sh -c "alembic -c src/alembic.ini upgrade head &&
+             alembic -c src/alembic.ini stamp head &&
+             python src/main.py"
+
+volumes:
+  database-wallet-service-volume:
